@@ -137,6 +137,19 @@ func (s *ArgoServerSuite) TestVersion() {
 	})
 }
 
+func (s *ArgoServerSuite) TestVersionHTTPResponse() {
+	s.Run("Version", func() {
+		// Test the actual HTTP response to check for proper version response
+		resp := s.e().GET("/api/v1/version").
+			Expect()
+		
+		// Should return 200 OK with JSON body containing version info
+		resp.Status(http.StatusOK)
+		resp.JSON().Path("$.version").NotNull()
+		resp.Header("Grpc-Metadata-Argo-Version").NotEmpty()
+	})
+}
+
 func (s *ArgoServerSuite) TestMetricsForbidden() {
 	s.bearerToken = ""
 	s.e().
