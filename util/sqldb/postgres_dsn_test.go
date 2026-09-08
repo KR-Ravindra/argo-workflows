@@ -101,6 +101,11 @@ func TestBuildPostgresDSNHostWithoutPort(t *testing.T) {
 	assert.NotContains(t, got, "port")
 }
 
+// sslMode must be honoured on its own, and an unset sslMode must keep the upper/db adapter's
+// default of prefer regardless of the ssl flag: before v4.1 the ssl flag only gated whether an
+// explicit sslMode was passed to the driver, so configs that never set it still negotiated TLS.
+// Mapping !ssl to disable sent plaintext to TLS-only servers such as Azure Database for
+// PostgreSQL, which reject it with `no pg_hba.conf entry ... no encryption`.
 func TestPostgresSSLMode(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -108,8 +113,9 @@ func TestPostgresSSLMode(t *testing.T) {
 		mode string
 		want string
 	}{
-		{"ssl disabled", false, "", "disable"},
-		{"ssl disabled ignores mode", false, "require", "disable"},
+		{"nothing configured keeps adapter default", false, "", "prefer"},
+		{"mode honoured without ssl flag", false, "require", "require"},
+		{"explicit disable", false, "disable", "disable"},
 		{"explicit mode", true, "verify-ca", "verify-ca"},
 		{"adapter default preserved", true, "", "prefer"},
 	} {
@@ -118,6 +124,23 @@ func TestPostgresSSLMode(t *testing.T) {
 			assert.Equal(t, tc.want, postgresSSLMode(cfg))
 		})
 	}
+}
+
+// The token connectors share postgresSSLMode, so a config with sslMode but no ssl flag must
+// produce a DSN that requires TLS rather than one that disables it.
+func TestBuildPostgresDSNSSLModeWithoutSSLFlag(t *testing.T) {
+	cfg := &config.PostgreSQLConfig{
+		DatabaseConfig: config.DatabaseConfig{
+			Host:     "example.postgres.database.azure.com",
+			Port:     5432,
+			Database: "argo",
+		},
+		SSLMode: "require",
+	}
+
+	got := dsnKeys(t, buildPostgresDSN(cfg, "argo_user", time.Second))
+
+	assert.Equal(t, "require", got["sslmode"])
 }
 
 // Values carrying DSN metacharacters must be escaped rather than splitting the DSN.

@@ -113,17 +113,16 @@ func createMySQLDBSession(ctx context.Context, kubectlConfig kubernetes.Interfac
 
 // postgresSSLMode returns the lib/pq sslmode to use for the given configuration. Shared by every
 // PostgreSQL session builder so the password and token paths cannot drift apart.
+//
+// An explicit sslMode always wins. Otherwise preserve the default behavior of the upper/db
+// postgresql adapter, which used sslmode=prefer whether or not ssl was set; lib/pq defaults to
+// sslmode=require. Mapping an unset ssl flag to disable would send plaintext to servers that only
+// accept TLS. Use sslMode: disable to turn TLS off.
 func postgresSSLMode(cfg *config.PostgreSQLConfig) string {
-	switch {
-	case !cfg.SSL:
-		return "disable"
-	case cfg.SSLMode != "":
+	if cfg.SSLMode != "" {
 		return cfg.SSLMode
-	default:
-		// Preserve the default behavior of the upper/db postgresql adapter,
-		// which used sslmode=prefer. lib/pq defaults to sslmode=require.
-		return "prefer"
 	}
+	return "prefer"
 }
 
 // pqDSNValueEscaper escapes a value for lib/pq's keyword/value DSN format, in which a space
