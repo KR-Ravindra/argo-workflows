@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: archive-retry-taskgroup-
+spec:
+  entrypoint: main
+  templates:
+  - name: main
+    steps:
+    - - name: shard-api
+        template: shard
+        arguments:
+          parameters:
+          - name: cpu_image
+            value: argoproj/argosay:v2
+    - - name: frame-processing
+        template: frame-process
+      - name: post-processing
+        template: post-process
+        arguments:
+          parameters:
+          - name: cpu_image
+            value: argoproj/argosay:v2
+  - name: shard
+    container:
+      image: argoproj/argosay:v2
+      command: [echo]
+      args: ["shard completed"]
+  - name: frame-process
+    container:
+      image: argoproj/argosay:v2
+      command: [echo]
+      args: ["frame processed"]
+  - name: post-process
+    container:
+      image: argoproj/argosay:v2
+      command: [echo]
+      args: ["post-process failed"]
