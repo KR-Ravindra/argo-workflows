@@ -1375,6 +1375,7 @@ func FormulateRetryWorkflow(ctx context.Context, wf *wfv1.Workflow, restartSucce
 
 	for nodeID := range toReset {
 		// avoid resetting nodes that are marked for deletion
+		// (they've already been processed in a previous iteration)
 		if in := toDelete[nodeID]; in {
 			continue
 		}
