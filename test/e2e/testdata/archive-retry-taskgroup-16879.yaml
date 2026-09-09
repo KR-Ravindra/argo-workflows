@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: archive-retry-taskgroup-bug-
+spec:
+  entrypoint: main
+  arguments:
+    parameters:
+      - name: worker_image
+        value: busybox:1.36
+  templates:
+    - name: main
+      dag:
+        tasks:
+          - name: produce
+            template: produce
+          - name: fanout
+            template: fanout
+            depends: produce.Succeeded
+            withParam: "{{tasks.produce.outputs.parameters.items}}"
+          - name: target
+            template: target
+            depends: fanout.Succeeded
+
+    - name: produce
+      script:
+        image: busybox:1.36
+        command: [sh]
+        source: 'printf "[\\"0\\"]" > /tmp/items.json'
+        outputs:
+          parameters:
+            - name: items
+              valueFrom:
+                path: /tmp/items.json
+
+    - name: fanout
+      container:
+        image: "{{workflow.parameters.worker_image}}"
+        command: [sh, -c]
+        args: ["echo fanout-success"]
+
+    - name: target
+      container:
+        image: "{{workflow.parameters.worker_image}}"
+        command: [sh, -c]
+        args: ["echo target-fails; exit 1"]
